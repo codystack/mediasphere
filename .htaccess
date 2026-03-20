@@ -1,0 +1,15 @@
+# Enable URL rewriting
+RewriteEngine On
+
+# If the requested file doesn't exist and doesn't have an extension
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^([^\.]+)$ $1.php [NC,L]
+
+# Custom error pages
+ErrorDocument 404 /404.php
+ErrorDocument 500 /500.php
+
+# Upgrade insecure requests (only when HTTPS is used)
+<If "%{HTTPS} == 'on'">
+    Header always set Content-Security-Policy "upgrade-insecure-requests"
+</If>
