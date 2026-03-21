@@ -12,10 +12,10 @@
                                 <input type="text" class="form-control" name="name" required>
                             </div>
 
-                            <div class="col-md-12">
+                            <!-- <div class="col-md-12">
                                 <label class="form-label">Product description</label>
                                 <textarea name="description" class="form-control" rows="3" required></textarea>
-                            </div>
+                            </div> -->
 
                             <div class="col-md-12">
                                 <label class="form-label">Price</label> 
@@ -27,10 +27,10 @@
                                 <input type="number" class="form-control" name="stock" required>
                             </div>
 
-                            <div class="col-md-12">
+                            <!-- <div class="col-md-12">
                                 <label class="form-label">Product image (optional)</label>
                                 <input type="file" class="form-control" name="image" accept="image/*">
-                            </div>
+                            </div> -->
 
                             <div class="col-md-12 mb-4">
                                 <label class="form-label">Status</label>

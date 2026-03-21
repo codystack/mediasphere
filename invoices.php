@@ -159,7 +159,7 @@ function getStatusBadge(string $status = ''): array {
                                         </button>
 
                                         <!-- CANCEL -->
-                                        <button class="btn btn-sm btn-danger invoice-cancel btn-square" data-id="<?= $invoice['id'] ?>">
+                                        <button class="btn btn-sm btn-danger invoice-cancelled btn-square" data-id="<?= $invoice['id'] ?>">
                                             <i class="bi bi-x-circle"></i>
                                         </button>
 
@@ -589,6 +589,109 @@ function getStatusBadge(string $status = ''): array {
                 }
             });
 
+        });
+    </script>
+
+    <!-- Change Status -->
+     <script>
+        $(document).ready(() => {
+            $('#invoices').DataTable();
+
+            const notyf = new Notyf();
+
+            // Completed
+            $('.invoice-paid').click(function() {
+                const id = $(this).data('id');
+                fetch('./auth/invoice_update_status.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ id, status: 'paid' })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        notyf.success(data.message);
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        notyf.error(data.message);
+                    }
+                });
+            });
+
+            // Cancelled
+            $('.invoice-cancelled').click(function() {
+                const id = $(this).data('id');
+                fetch('./auth/invoice_update_status.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({ id, status: 'cancelled' })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        notyf.success(data.message);
+                        setTimeout(() => location.reload(), 1000);
+                    } else {
+                        notyf.error(data.message);
+                    }
+                });
+            });
+        });
+    </script>
+
+    <!-- Delete invoice -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const notyf = new Notyf();
+            let currentInvoiceId = null;
+            let currentAction = null;
+
+            const confirmMessage = document.getElementById('confirmActionMessage');
+            const confirmButton = document.getElementById('confirmActionButton');
+
+            // ======== DELETE invoice =========
+            document.querySelectorAll('.delete-invoice').forEach(button => {
+                button.addEventListener('click', e => {
+                    e.preventDefault();
+                    currentInvoiceId = button.dataset.id;
+                    currentAction = 'delete';
+                    const name = button.dataset.name || 'this invoice';
+                    confirmMessage.innerHTML = `You are about to permanently delete<br><b>${name}</b>.<br>This action cannot be undone.`;
+                    confirmButton.textContent = 'Delete';
+                    confirmButton.className = 'btn btn-danger';
+                    confirmButton.dataset.action = 'delete';
+                });
+            });
+
+            // ======== CONFIRM ACTION HANDLER =========
+            confirmButton.addEventListener('click', async () => {
+                if (!currentInvoiceId || !currentAction) return;
+
+                confirmButton.disabled = true;
+                confirmButton.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Processing...`;
+
+                try {
+                    const response = await fetch('./auth/invoice_delete_auth.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams({ id: currentInvoiceId })
+                    });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        notyf.success(data.message);
+                        setTimeout(() => window.location.reload(), 1000);
+                    } else {
+                        notyf.error(data.message || 'Operation failed.');
+                    }
+                } catch (error) {
+                    console.error(error);
+                    notyf.error('Network or server error.');
+                }
+
+                confirmButton.disabled = false;
+                confirmButton.textContent = 'Delete';
+            });
         });
     </script>
 
