@@ -51,6 +51,7 @@ function getStatusBadge(string $status = ''): array {
                     <div class="vstack gap-4">
                         <div class="card">
                             <div class="table-responsive px-10 py-10">
+                                <?php if (count($products) > 0): ?>
                                 <table class="table table-hover table-nowrap" id="product">
                                     <thead class="table-light">
                                         <tr>
@@ -62,7 +63,6 @@ function getStatusBadge(string $status = ''): array {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <?php if (count($products) > 0): ?>
                                             <?php foreach ($products as $product): 
                                                 [$badge, $action] = getStatusBadge($product['status'] ?? '');
                                             ?>
