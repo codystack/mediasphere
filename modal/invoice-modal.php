@@ -9,7 +9,7 @@
                     <div class="align-items-center mb-10">
                         <div class="text-center">
                             <div id="newConfirmMessage"></div>
-                            <!-- <button id="confirmButton" class="btn btn-primary">Confirm</button> -->
+                            <button id="confirmButton" class="btn btn-primary">Confirm</button>
                         </div>
                     </div>
                 </div>

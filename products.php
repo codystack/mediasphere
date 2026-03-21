@@ -68,7 +68,7 @@ function getStatusBadge(string $status = ''): array {
                                             ?>
                                         <tr>
                                             <td>
-                                                <img alt="avatar" src="<?= htmlspecialchars($product['image']) ?>" class="avatar avatar-xl rounded me-2">
+                                                <!-- <img alt="avatar" src="<?= htmlspecialchars($product['image']) ?>" class="avatar avatar-xl rounded me-2"> -->
                                                 <a class="text-heading text-primary-hover font-semibold" href="#"><?= htmlspecialchars($product['name']) ?></a>
                                             </td>
                                             <td>₦<?= number_format($product['price'], 2) ?></td>
