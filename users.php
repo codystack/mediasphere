@@ -89,7 +89,7 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
                                 <?php else: ?>
                                     <div style="position: relative; height: 250px;">
                                         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);" class="text-center">
-                                            <img src="./assets/img/no-data.png" width="150" alt="No Devices">
+                                            <img src="./assets/img/no-data.png" width="150" alt="No Customers">
                                             <p class="mt-3 lead">No customer yet</p>
                                         </div>
                                     </div>

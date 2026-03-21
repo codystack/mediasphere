@@ -117,11 +117,16 @@ function getStatusBadge(string $status = ''): array {
                                             </td>
                                         </tr>
                                         <?php endforeach; ?>
-                                        <?php else: ?>
-                                            <tr><td colspan="5" class="text-center text-muted">No product found.</td></tr>
-                                        <?php endif; ?>
                                     </tbody>
                                 </table>
+                                <?php else: ?>
+                                    <div style="position: relative; height: 250px;">
+                                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);" class="text-center">
+                                            <img src="./assets/img/no-data.png" width="150" alt="No Products">
+                                            <p class="mt-3 lead">No products yet</p>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>

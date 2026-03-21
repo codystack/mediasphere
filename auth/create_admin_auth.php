@@ -87,7 +87,7 @@ try {
                                         <tr><td style='padding:5px 0;'><b>Password:</b> {$plainPassword}</td></tr>
                                     </table>
                                     <p style='font-size:13px;color:#888;margin:20px 0;'>You can log in to your dashboard and change your password immediately for security reasons.</p>
-                                    <a href='https://mediasphere.store' style='display:inline-block;margin-top:10px;padding:10px 25px;background:#000000;color:#fff;text-decoration:none;border-radius:5px;'>Go to Admin Dashboard</a>
+                                    <a href='https://backoffice.mediasphere.store/' style='display:inline-block;margin-top:10px;padding:10px 25px;background:#000000;color:#fff;text-decoration:none;border-radius:5px;'>Go to Admin Dashboard</a>
                                 </td>
                             </tr>
                             <tr>
