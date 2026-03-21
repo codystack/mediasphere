@@ -68,6 +68,94 @@ try {
     $totalProducts = 0;
 }
 
+// =========================
+// FETCH LATEST INVOICES
+// =========================
+try {
+    $stmt = $pdo->query("
+        SELECT 
+            i.*,
+            u.first_name,
+            u.last_name
+        FROM invoices i
+        LEFT JOIN users u ON i.customer_id = u.id
+        ORDER BY i.id DESC
+        LIMIT 3
+    ");
+
+    $invoices = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    $invoices = [];
+    error_log("Invoice fetch error: " . $e->getMessage());
+}
+
+// =========================
+// INVOICE STATUS BADGE
+// =========================
+function getInvoiceStatusBadge(string $status = ''): array {
+    $s = strtolower(trim($status));
+
+    switch ($s) {
+        case 'paid':
+            return ['bg-soft-success text-success', 'Paid'];
+
+        case 'pending':
+            return ['bg-soft-warning text-warning', 'Pending'];
+
+        case 'cancelled':
+            return ['bg-soft-danger text-danger', 'Cancelled'];
+
+        default:
+            return ['bg-soft-secondary text-secondary', ucfirst($status ?: 'Unknown')];
+    }
+}
+
+try {
+    // =========================
+    // TOTAL INVOICES
+    // =========================
+    $stmt = $pdo->query("SELECT COUNT(*) FROM invoices");
+    $totalInvoices = $stmt->fetchColumn();
+
+    // =========================
+    // PENDING INVOICES
+    // =========================
+    $stmt = $pdo->query("SELECT COUNT(*) FROM invoices WHERE status = 'pending'");
+    $pendingInvoices = $stmt->fetchColumn();
+
+    // =========================
+    // LAST MONTH TOTAL INVOICES
+    // =========================
+    $stmt = $pdo->query("
+        SELECT COUNT(*) 
+        FROM invoices 
+        WHERE created_at >= DATE_FORMAT(CURDATE() - INTERVAL 1 MONTH, '%Y-%m-01')
+        AND created_at < DATE_FORMAT(CURDATE(), '%Y-%m-01')
+    ");
+    $lastMonthInvoices = $stmt->fetchColumn();
+
+    // =========================
+    // LAST MONTH PENDING INVOICES
+    // =========================
+    $stmt = $pdo->query("
+        SELECT COUNT(*) 
+        FROM invoices 
+        WHERE status = 'pending'
+        AND created_at >= DATE_FORMAT(CURDATE() - INTERVAL 1 MONTH, '%Y-%m-01')
+        AND created_at < DATE_FORMAT(CURDATE(), '%Y-%m-01')
+    ");
+    $lastMonthPending = $stmt->fetchColumn();
+
+} catch (PDOException $e) {
+    $totalInvoices = 0;
+    $pendingInvoices = 0;
+    $lastMonthInvoices = 0;
+    $lastMonthPending = 0;
+
+    error_log("Invoice count error: " . $e->getMessage());
+}
+
 // Fetch transactions
 try {
     // Fetch latest 5 transactions
@@ -109,22 +197,6 @@ function getStatusBadge(string $status = ''): array {
             return ['bg-soft-secondary text-secondary', ucfirst($status ?: 'Unknown')];
     }
 }
-
-
-// Fetch total disbursed amount
-// $stmt = $pdo->query("SELECT SUM(amount) AS total_amount FROM transactions WHERE status = 'Disbursed'");
-// $total = $stmt->fetch(PDO::FETCH_ASSOC);
-
-// If no transactions, total_amount will be NULL
-$total_amount = $total['total_amount'] ?? 0;
-
-// Fetch total revenue amount
-// $stmt = $pdo->query("SELECT SUM(amount) AS total_revenue FROM payment_proofs WHERE status = 'Verified'");
-// $total = $stmt->fetch(PDO::FETCH_ASSOC);
-
-// If no approved of funds, total_revenue will be NULL
-$total_revenue = $total['total_revenue'] ?? 0;
-
 
 ?>
     <div class="d-flex flex-column flex-lg-row h-lg-full bg-surface-secondary">
@@ -216,7 +288,7 @@ $total_revenue = $total['total_revenue'] ?? 0;
                                     <div class="row">
                                         <div class="col">
                                             <span class="h6 font-semibold text-muted text-sm d-block mb-2">
-                                                Total Revenue
+                                                Total Sale
                                             </span>
                                             <span class="h3 font-bold mb-0">
                                                 ₦<?= number_format($total_amount, 2) ?>
@@ -243,11 +315,17 @@ $total_revenue = $total['total_revenue'] ?? 0;
                                 <div class="card-body">
                                     <div class="row mb-3 mt-3">
                                         <div class="col">
-                                            <span class="h6 font-semibold text-muted text-sm d-block mb-2">Revenue Generated</span> 
-                                            <span class="h3 font-bold mb-0">₦<?= number_format($total_revenue, 2) ?></span></div>
+                                            <span class="h6 font-semibold text-muted text-sm d-block mb-2">
+                                                Total Invoice
+                                            </span> 
+                                            <span class="h3 font-bold mb-0">
+                                                <?= number_format($totalInvoices) ?>
+                                            </span>
+                                        </div>
+
                                         <div class="col-auto">
                                             <div class="icon icon-shape icon-lg bg-success text-white text-2xl rounded-circle">
-                                                <i class="bi bi-bank2"></i>
+                                                <i class="bi bi-file-earmark-pdf"></i>
                                             </div>
                                         </div>
                                     </div>
@@ -259,11 +337,17 @@ $total_revenue = $total['total_revenue'] ?? 0;
                                 <div class="card-body">
                                     <div class="row mb-3 mt-3">
                                         <div class="col">
-                                            <span class="h6 font-semibold text-muted text-sm d-block mb-2">Total Applications</span> 
-                                            <span class="h3 font-bold mb-0"><?= number_format($totalApplications) ?></span></div>
+                                            <span class="h6 font-semibold text-muted text-sm d-block mb-2">
+                                                Pending Invoice
+                                            </span> 
+                                            <span class="h3 font-bold mb-0">
+                                                <?= number_format($pendingInvoices) ?>
+                                            </span>
+                                        </div>
+
                                         <div class="col-auto">
-                                            <div class="icon icon-shape icon-lg bg-danger text-white text-2xl rounded-circle">
-                                                <i class="bi bi-file-earmark-text"></i>
+                                            <div class="icon icon-shape icon-lg bg-warning text-white text-2xl rounded-circle">
+                                                <i class="bi bi-hourglass-split"></i>
                                             </div>
                                         </div>
                                     </div>
@@ -341,49 +425,68 @@ $total_revenue = $total['total_revenue'] ?? 0;
                             <div class="card h-full">
                                 <div class="card-body">
                                     <div class="card-title d-flex align-items-center">
-                                        <h5 class="mb-0">Latest Payment Proofs</h5>
+                                        <h5 class="mb-0">Latest Invoices</h5>
                                         <div class="ms-auto text-end">
-                                            <a href="payment-proofs" class="text-sm font-semibold">See all</a>
+                                            <a href="invoices" class="text-sm font-semibold">See all</a>
                                         </div>
                                     </div>
+
                                     <div class="list-group gap-4">
-                                        <?php if ($payment_proofs): ?>
-                                        <?php foreach ($payment_proofs as $proof): ?>
-                                            <div class="list-group-item d-flex align-items-center border rounded">
-                                                <div class="me-4">
-                                                    <div class="avatar rounded-circle">
-                                                        <img alt="icon" src="./assets/img/bank-icon.svg">
-                                                    </div>
-                                                </div>
-                                                <div class="flex-fill">
-                                                    <a href="#" class="d-block h6 font-semibold mb-1">
-                                                        <?= htmlspecialchars($proof['first_name'] . ' ' . $proof['last_name']); ?>
-                                                    </a>
-                                                    <span class="d-block text-sm text-muted">
-                                                        ₦<?= number_format($proof['amount'], 2) ?> 
-                                                    </span>
-                                                </div>
-                                                <div class="ms-auto text-end">
-                                                    <div class="dropdown">
-                                                        <a class="text-muted" href="#" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                                            <i class="bi bi-three-dots-vertical"></i>
-                                                        </a>
-                                                        <div class="dropdown-menu">
-                                                            <a href="https://app.blinkscore.ng/<?= htmlspecialchars($proof['file_path']) ?>" target="_blank" class="dropdown-item">View Proof</a>
-                                                            <a href="payment-proofs" class="dropdown-item">View All</a>
+
+                                        <?php if (!empty($invoices)): ?>
+                                            <?php foreach ($invoices as $inv): ?>
+
+                                                <?php [$badgeClass, $label] = getInvoiceStatusBadge($inv['status']); ?>
+
+                                                <div class="list-group-item d-flex align-items-center border rounded">
+
+                                                    <!-- ICON -->
+                                                    <div class="me-4">
+                                                        <div class="avatar rounded-circle bg-light">
+                                                            <i class="bi bi-receipt text-dark"></i>
                                                         </div>
                                                     </div>
+
+                                                    <!-- INFO -->
+                                                    <div class="flex-fill">
+                                                        <a href="#" class="d-block h6 font-semibold mb-1">
+                                                            <?= htmlspecialchars($inv['first_name'] . ' ' . $inv['last_name']); ?>
+                                                        </a>
+
+                                                        <span class="d-block text-sm">
+                                                            ₦<?= number_format($inv['total_amount'], 2) ?>
+                                                        </span>
+                                                    </div>
+
+                                                    <!-- RIGHT SIDE -->
+                                                    <div class="ms-auto text-end">
+
+                                                        <!-- STATUS -->
+                                                        <span class="badge <?= $badgeClass ?> mb-2 d-block">
+                                                            <?= $label ?>
+                                                        </span>
+
+                                                        <button 
+                                                            class="btn btn-sm btn-primary view-invoice btn-square" 
+                                                            data-id="<?= $inv['id'] ?>">
+                                                            <i class="bi bi-eye"></i>
+                                                        </button>
+
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        <?php endforeach; ?>
+
+                                            <?php endforeach; ?>
 
                                         <?php else: ?>
+
+                                            <!-- EMPTY STATE -->
                                             <div style="position: relative; height: 250px;">
                                                 <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);" class="text-center">
-                                                    <img src="./assets/img/no-data-icon.svg" width="90" alt="No Devices">
-                                                    <p class="mt-3 lead">No device yet</p>
+                                                    <img src="./assets/img/no-data-icon.svg" width="90" alt="No Invoices">
+                                                    <p class="mt-3 lead">No invoices yet</p>
                                                 </div>
                                             </div>
+
                                         <?php endif; ?>
 
                                     </div>
@@ -399,6 +502,7 @@ $total_revenue = $total['total_revenue'] ?? 0;
     <?php
     include "./modal/modal.php";
     include "./modal/transaction-modal.php";
+    include "./modal/invoice-modal.php";
     ?>
 
     <script src="./assets/js/main.js"></script>
@@ -551,6 +655,191 @@ $total_revenue = $total['total_revenue'] ?? 0;
                 ) {
                     transactionModal.classList.remove('show');
                     transactionModal.style.display = 'none';
+                }
+            });
+
+        });
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            let currentInvoiceId = null;
+
+            const invoiceModal = document.getElementById('invoiceModal');
+            const confirmButton = document.getElementById('confirmButton');
+            const newConfirmMessage = document.getElementById('newConfirmMessage');
+
+            if (!invoiceModal || !confirmButton || !newConfirmMessage) {
+                console.error('Modal elements not found.');
+                return;
+            }
+
+            // =========================
+            // VIEW INVOICE CLICK
+            // =========================
+            document.querySelectorAll('.view-invoice').forEach(button => {
+                button.addEventListener('click', e => {
+                    e.preventDefault();
+                    currentInvoiceId = button.dataset.id;
+
+                    newConfirmMessage.innerHTML = `
+                        <div class="text-center">
+                            <div class="spinner-border text-primary mb-3"></div>
+                            <p>Loading invoice details...</p>
+                        </div>
+                    `;
+
+                    confirmButton.style.display = 'none';
+
+                    invoiceModal.classList.add('show');
+                    invoiceModal.style.display = 'block';
+
+                    loadInvoiceDetails(currentInvoiceId);
+                });
+            });
+
+            // =========================
+            // LOAD INVOICE DETAILS
+            // =========================
+            async function loadInvoiceDetails(invoiceId) {
+                try {
+                    const response = await fetch('./auth/invoice_view_auth.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams({ id: invoiceId })
+                    });
+
+                    const data = await response.json();
+
+                    if (!data.success) {
+                        newConfirmMessage.innerHTML = `<div class="text-danger text-center">${data.message}</div>`;
+                        return;
+                    }
+
+                    const invoice = data.invoice;
+                    const items = data.items || [];
+
+                    // =========================
+                    // STATUS BADGE
+                    // =========================
+                    let statusClass = 'bg-soft-secondary';
+                    if (invoice.status === 'pending') statusClass = 'bg-soft-warning text-warning';
+                    if (invoice.status === 'paid') statusClass = 'bg-soft-success text-success';
+                    if (invoice.status === 'cancelled') statusClass = 'bg-soft-danger text-danger';
+
+                    // =========================
+                    // BUILD ITEMS TABLE
+                    // =========================
+                    let itemsHTML = '';
+                    items.forEach(item => {
+                        itemsHTML += `
+                            <tr>
+                                <td>${item.product_name}</td>
+                                <td>₦${parseFloat(item.price).toLocaleString()}</td>
+                                <td>${item.quantity}</td>
+                                <td>₦${parseFloat(item.total).toLocaleString()}</td>
+                            </tr>
+                        `;
+                    });
+
+                    // =========================
+                    // RENDER
+                    // =========================
+                    newConfirmMessage.innerHTML = `
+                        <div class="content-area text-start">
+
+                            <!-- TOP INFO -->
+                            <div class="data-details d-md-flex mb-4">
+                                <div class="me-4">
+                                    <span class="data-details-title">Invoice Date</span>
+                                    <span class="data-details-info">${invoice.created_at}</span>
+                                </div>
+
+                                <div class="me-4">
+                                    <span class="data-details-title">Invoice No</span>
+                                    <span class="data-details-info">${invoice.invoice_number}</span>
+                                </div>
+
+                                <div>
+                                    <span class="data-details-title">Status</span>
+                                    <span class="badge ${statusClass}">
+                                        ${invoice.status.toUpperCase()}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- CUSTOMER -->
+                            <ul class="data-details-list">
+                                <li>
+                                    <div class="data-details-head">Customer</div>
+                                    <div class="data-details-des">${invoice.customer_name}</div>
+                                </li>
+
+                                <li>
+                                    <div class="data-details-head">Email</div>
+                                    <div class="data-details-des">${invoice.customer_email}</div>
+                                </li>
+
+                                <li>
+                                    <div class="data-details-head">Served By</div>
+                                    <div class="data-details-des">${invoice.admin_name || '—'}</div>
+                                </li>
+
+                                <li>
+                                    <div class="data-details-head">Payment Method</div>
+                                    <div class="data-details-des">
+                                        ${invoice.payment_method 
+                                            ? invoice.payment_method.charAt(0).toUpperCase() + invoice.payment_method.slice(1)
+                                            : '—'}
+                                    </div>
+                                </li>
+                            </ul>
+
+                            <!-- ITEMS TABLE -->
+                            <div class="table-responsive mt-4">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Item</th>
+                                            <th>Price</th>
+                                            <th>Qty</th>
+                                            <th>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${itemsHTML || '<tr><td colspan="4" class="text-center">No items</td></tr>'}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- TOTALS -->
+                            <div class="mt-4 text-end">
+                                <p>Subtotal: ₦${parseFloat(invoice.subtotal).toLocaleString()}</p>
+                                <p>Discount: ₦${parseFloat(invoice.discount).toLocaleString()}</p>
+                                <p>Tax: ₦${parseFloat(invoice.tax).toLocaleString()}</p>
+                                <h5><strong>Total: ₦${parseFloat(invoice.total_amount).toLocaleString()}</strong></h5>
+                            </div>
+
+                        </div>
+                    `;
+
+                } catch (error) {
+                    console.error(error);
+                    newConfirmMessage.innerHTML = `<div class="text-danger text-center">Network or server error.</div>`;
+                }
+            }
+
+            // =========================
+            // CLOSE MODAL
+            // =========================
+            invoiceModal.addEventListener('click', e => {
+                if (
+                    e.target.classList.contains('modal-close') ||
+                    e.target.classList.contains('btn-close') ||
+                    e.target === invoiceModal
+                ) {
+                    invoiceModal.classList.remove('show');
+                    invoiceModal.style.display = 'none';
                 }
             });
 

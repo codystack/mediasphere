@@ -78,8 +78,8 @@
                         </li>
 
                         <li class="nav-item mt-4">
-                            <a class="nav-link py-2 d-flex align-items-center <?= ($currentPage === 'invoice') ? 'active' : '' ?>" href="invoice">
-                                <i class="bi bi-file-earmark-pdf"></i> <span>Invoice</span> 
+                            <a class="nav-link py-2 d-flex align-items-center <?= ($currentPage === 'invoices') ? 'active' : '' ?>" href="invoices">
+                                <i class="bi bi-file-earmark-pdf"></i> <span>Invoices</span> 
                                 <?php if (!empty($countPendingApplications) && $countPendingApplications > 0): ?>
                                     <span class="badge badge-sm bg-soft-danger text-danger rounded-pill ms-auto">
                                         <?= htmlspecialchars($countPendingApplications) ?>
