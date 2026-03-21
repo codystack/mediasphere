@@ -18,7 +18,7 @@ if (!isset($_POST['id'], $_POST['status'])) {
 
 $id = intval($_POST['id']);
 $status = strtolower(trim($_POST['status']));
-$valid_statuses = ['approved', 'disbursed', 'closed'];
+$valid_statuses = ['processing', 'completed', 'cancelled'];
 
 if (!in_array($status, $valid_statuses)) {
     echo json_encode(['success' => false, 'message' => 'Invalid status value']);

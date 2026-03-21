@@ -89,13 +89,8 @@
                         </li>
 
                         <li class="nav-item mt-4">
-                            <a class="nav-link py-2 d-flex align-items-center <?= ($currentPage === 'payment-proofs') ? 'active' : '' ?>" href="payment-proofs">
-                                <i class="bi bi-cash-coin"></i> <span>Payment Proofs</span> 
-                                <?php if (!empty($countPendingPaymentProofs) && $countPendingPaymentProofs > 0): ?>
-                                    <span class="badge badge-sm bg-soft-danger text-danger rounded-pill ms-auto">
-                                        <?= htmlspecialchars($countPendingPaymentProofs) ?>
-                                    </span>
-                                <?php endif; ?>
+                            <a class="nav-link py-2 <?= ($currentPage === 'products') ? 'active' : '' ?>" href="products">
+                                <i class="bi bi-camera"></i> Products
                             </a>
                         </li>
 
