@@ -3,25 +3,44 @@ include "./components/header.php";
 require_once('./config/db.php');
 
 // =======================
-// FETCH TRANSACTIONS
+// FETCH INVOICES
 // =======================
 $stmt = $pdo->query("
     SELECT 
-        t.*,
+        i.*,
         u.first_name,
         u.last_name,
         u.email,
         u.phone,
-        p.name AS product_name,
         a.first_name AS admin_first,
         a.last_name AS admin_last
-    FROM transactions t
-    LEFT JOIN users u ON t.customer_id = u.id
-    LEFT JOIN products p ON t.product_id = p.id
-    LEFT JOIN admin a ON t.admin_id = a.id
-    ORDER BY t.id DESC
+    FROM invoices i
+    LEFT JOIN users u ON i.customer_id = u.id
+    LEFT JOIN admin a ON i.admin_id = a.id
+    ORDER BY i.id DESC
 ");
-$transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$invoices = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+function getInvoiceItems($pdo, $invoice_id) {
+    $stmt = $pdo->prepare("
+        SELECT 
+            ii.*,
+            p.image
+        FROM invoice_items ii
+        LEFT JOIN products p ON ii.product_id = p.id
+        WHERE ii.invoice_id = ?
+    ");
+
+    $stmt->execute([$invoice_id]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+$stmt = $pdo->query("SELECT id, name, price FROM products WHERE stock > 0");
+$products = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+$stmt = $pdo->query("SELECT id, first_name, last_name FROM users");
+$customers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // =======================
 // STATUS BADGE
@@ -30,11 +49,11 @@ function getStatusBadge(string $status = ''): array {
     $s = strtolower(trim($status));
 
     switch ($s) {
-        case 'completed':
-            return ['bg-soft-success text-success', 'Completed'];
+        case 'paid':
+            return ['bg-soft-success text-success', 'Paid'];
 
-        case 'processing':
-            return ['bg-soft-warning text-warning', 'Processing'];
+        case 'pending':
+            return ['bg-soft-warning text-warning', 'Pending'];
 
         case 'cancelled':
             return ['bg-soft-danger text-danger', 'Cancelled'];
@@ -53,20 +72,18 @@ function getStatusBadge(string $status = ''): array {
 
         <!-- HEADER -->
         <header>
-        <header>
             <div class="container-fluid">
                 <div class="pt-6">
                     <div class="row align-items-center">
                         <div class="col-sm col-12">
                             <h1 class="h2 ls-tight">Invoices</h1>
                         </div>
+
                         <div class="col-sm-auto col-12 mt-4 mt-sm-0">
-                            <div class="hstack gap-2 justify-content-sm-end">
-                                <a href="#offcanvasAddNewInvoice" class="btn btn-sm btn-primary" data-bs-toggle="offcanvas">
-                                    <span class="pe-2"><i class="bi bi-plus-square-dotted"></i> </span>
-                                    <span>Create New Invoice</span>
-                                </a>
-                            </div>
+                            <a href="#offcanvasAddNewInvoice" class="btn btn-sm btn-primary" data-bs-toggle="offcanvas">
+                                <i class="bi bi-plus-square-dotted pe-2"></i>
+                                Create Invoice
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -76,17 +93,18 @@ function getStatusBadge(string $status = ''): array {
         <!-- MAIN -->
         <main class="py-6 bg-surface-secondary">
             <div class="container-fluid">
+
                 <div class="card">
                     <div class="table-responsive p-4">
 
-                        <?php if (count($transactions) > 0): ?>
+                        <?php if (count($invoices) > 0): ?>
                         <table class="table table-hover" id="invoices">
+
                             <thead class="table-light">
                                 <tr>
-                                    <th>Ref</th>
-                                    <th>Product</th>
-                                    <th>Qty</th>
-                                    <th>Total Amount</th>
+                                    <th>Invoice #</th>
+                                    <th>Customer</th>
+                                    <th>Total</th>
                                     <th>Status</th>
                                     <th>Date</th>
                                     <th></th>
@@ -94,24 +112,25 @@ function getStatusBadge(string $status = ''): array {
                             </thead>
 
                             <tbody>
-                                <?php foreach ($transactions as $transaction): 
-                                    [$badgeClass, $statusText] = getStatusBadge($transaction['status']);
+                                <?php foreach ($invoices as $invoice): 
+                                    [$badgeClass, $statusText] = getStatusBadge($invoice['status']);
                                 ?>
                                 <tr>
 
-                                    <!-- CUSTOMER -->
+                                    <!-- INVOICE NUMBER -->
                                     <td>
-                                        <?= htmlspecialchars(($transaction['transaction_ref'] ?? '')) ?>
+                                        <?= htmlspecialchars($invoice['invoice_number']) ?>
                                     </td>
 
-                                    <!-- PRODUCT -->
-                                    <td><?= htmlspecialchars($transaction['product_name'] ?? '—') ?></td>
-
-                                    <!-- QTY -->
-                                    <td><?= (int)$transaction['quantity'] ?></td>
+                                    <!-- CUSTOMER -->
+                                    <td>
+                                        <?= htmlspecialchars($invoice['first_name'] . ' ' . $invoice['last_name']) ?>
+                                    </td>
 
                                     <!-- TOTAL -->
-                                    <td>₦<?= number_format($transaction['total_amount'], 2) ?></td>
+                                    <td>
+                                        ₦<?= number_format($invoice['total_amount'], 2) ?>
+                                    </td>
 
                                     <!-- STATUS -->
                                     <td>
@@ -121,51 +140,41 @@ function getStatusBadge(string $status = ''): array {
                                     </td>
 
                                     <!-- DATE -->
-                                    <td><?= date('d M Y, h:i A', strtotime($transaction['created_at'])) ?></td>
+                                    <td>
+                                        <?= date('d M Y, h:i A', strtotime($invoice['created_at'])) ?>
+                                    </td>
 
                                     <!-- ACTIONS -->
                                     <td class="text-end">
 
-                                        <!-- VIEW Transaction -->
-                                        <button 
-                                            class="btn btn-sm btn-neutral view-transaction btn-square" 
-                                            data-id="<?= $transaction['id'] ?>">
-                                           <i class="bi bi-eye"></i>
+                                        <!-- VIEW INVOICE -->
+                                        <button class="btn btn-sm btn-neutral btn-square view-invoice" data-id="<?= $invoice['id'] ?>">
+                                            <i class="bi bi-eye"></i>
                                         </button>
 
-                                        <!-- VIEW RECEIPT -->
-                                        <a href="./receipt.php?transaction_ref=<?= $transaction['transaction_ref'] ?>"
+                                        <!-- DOWNLOAD PDF -->
+                                        <a href="./invoice.php?invoice_number=<?= $invoice['invoice_number'] ?>" 
                                            target="_blank"
                                            class="btn btn-sm btn-dark btn-square">
                                            <i class="bi bi-receipt"></i>
                                         </a>
 
-                                        <!-- PROCESSING -->
-                                        <button 
-                                            class="btn btn-sm btn-warning transaction-processing btn-square" 
-                                            data-id="<?= $transaction['id'] ?>">
-                                            <i class="bi bi-hourglass"></i>
-                                        </button>
-
-                                        <!-- COMPLETED -->
-                                        <button 
-                                            class="btn btn-sm btn-success transaction-completed btn-square" 
-                                            data-id="<?= $transaction['id'] ?>">
+                                        <!-- MARK PAID -->
+                                        <button class="btn btn-sm btn-success invoice-paid btn-square" data-id="<?= $invoice['id'] ?>">
                                             <i class="bi bi-check-circle"></i>
                                         </button>
 
                                         <!-- CANCEL -->
-                                        <button 
-                                            class="btn btn-sm btn-danger transaction-cancelled btn-square" 
-                                            data-id="<?= $transaction['id'] ?>">
+                                        <button class="btn btn-sm btn-danger invoice-cancel btn-square" data-id="<?= $invoice['id'] ?>">
                                             <i class="bi bi-x-circle"></i>
                                         </button>
 
+                                        <!-- DELETE -->
                                         <button 
                                             type="button" 
-                                            class="btn btn-sm btn-square btn-danger delete-transaction" 
-                                            data-id="<?= $transaction['id'] ?>" 
-                                            data-name="<?= htmlspecialchars($transaction['product_name']) ?>" 
+                                            class="btn btn-sm btn-square btn-danger delete-invoice" 
+                                            data-id="<?= $invoice['id'] ?>" 
+                                            data-name="<?= htmlspecialchars($invoice['invoice_number']) ?>" 
                                             data-bs-toggle="modal" 
                                             data-bs-target="#confirmActionModal">
                                             <i class="bi bi-trash"></i>
@@ -176,17 +185,19 @@ function getStatusBadge(string $status = ''): array {
                                 </tr>
                                 <?php endforeach; ?>
                             </tbody>
+
                         </table>
 
                         <?php else: ?>
                             <div class="text-center py-5">
                                 <img src="./assets/img/no-data.png" width="120">
-                                <p class="mt-3">No transactions yet</p>
+                                <p class="mt-3">No invoices yet</p>
                             </div>
                         <?php endif; ?>
 
                     </div>
                 </div>
+
             </div>
         </main>
     </div>
@@ -203,266 +214,203 @@ function getStatusBadge(string $status = ''): array {
     <script src="https://code.jquery.com/jquery-3.7.1.js"></script>
     <script src="https://cdn.datatables.net/2.3.4/js/dataTables.js"></script>
 
-                
-    <!-- Change Status -->
-     <script>
-        $(document).ready(() => {
+    <script>
+        $(document).ready(function() {
             $('#invoices').DataTable();
-
-            const notyf = new Notyf();
-
-            // Processing
-            $('.transaction-processing').click(function() {
-                const id = $(this).data('id');
-                fetch('./auth/transaction_update_status.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({ id, status: 'processing' })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        notyf.success(data.message);
-                        setTimeout(() => location.reload(), 1000);
-                    } else {
-                        notyf.error(data.message);
-                    }
-                });
-            });
-
-            // Completed
-            $('.transaction-completed').click(function() {
-                const id = $(this).data('id');
-                fetch('./auth/transaction_update_status.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({ id, status: 'completed' })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        notyf.success(data.message);
-                        setTimeout(() => location.reload(), 1000);
-                    } else {
-                        notyf.error(data.message);
-                    }
-                });
-            });
-
-            // Cancelled
-            $('.transaction-cancelled').click(function() {
-                const id = $(this).data('id');
-                fetch('./auth/transaction_update_status.php', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({ id, status: 'cancelled' })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        notyf.success(data.message);
-                        setTimeout(() => location.reload(), 1000);
-                    } else {
-                        notyf.error(data.message);
-                    }
-                });
-            });
         });
     </script>
 
-
-    <!-- Delete transaction -->
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const notyf = new Notyf();
-            let currentTransactionId = null;
-            let currentAction = null;
+        let itemIndex = 0;
 
-            const confirmMessage = document.getElementById('confirmActionMessage');
-            const confirmButton = document.getElementById('confirmActionButton');
+        const products = <?= json_encode($products ?? []) ?>;
 
-            // ======== DELETE transaction =========
-            document.querySelectorAll('.delete-transaction').forEach(button => {
-                button.addEventListener('click', e => {
-                    e.preventDefault();
-                    currentTransactionId = button.dataset.id;
-                    currentAction = 'delete';
-                    const name = button.dataset.name || 'this transaction';
-                    confirmMessage.innerHTML = `You are about to permanently delete<br><b>${name}</b>.<br>This action cannot be undone.`;
-                    confirmButton.textContent = 'Delete';
-                    confirmButton.className = 'btn btn-danger';
-                    confirmButton.dataset.action = 'delete';
-                });
-            });
+        const container = document.getElementById('itemsContainer');
+        const addBtn = document.getElementById('addItemBtn');
 
-            // ======== CONFIRM ACTION HANDLER =========
-            confirmButton.addEventListener('click', async () => {
-                if (!currentTransactionId || !currentAction) return;
+        /* =========================
+        HELPERS
+        ========================= */
+        function formatWithCommas(value) {
+            value = value.replace(/,/g, '');
+            if (!value) return '';
+            return parseFloat(value).toLocaleString();
+        }
 
-                confirmButton.disabled = true;
-                confirmButton.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Processing...`;
+        function getRawNumber(value) {
+            return parseFloat(String(value).replace(/,/g, '')) || 0;
+        }
 
-                try {
-                    const response = await fetch('./auth/transaction_delete_auth.php', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: new URLSearchParams({ id: currentTransactionId })
-                    });
-                    const data = await response.json();
+        /* =========================
+        ADD ITEM
+        ========================= */
+        function addItem() {
+    const row = document.createElement('div');
+    row.classList.add('row', 'mb-2', 'item-row');
 
-                    if (data.success) {
-                        notyf.success(data.message);
-                        setTimeout(() => window.location.reload(), 1000);
-                    } else {
-                        notyf.error(data.message || 'Operation failed.');
-                    }
-                } catch (error) {
-                    console.error(error);
-                    notyf.error('Network or server error.');
-                }
+    let options = '<option disabled selected>Select Product</option>';
+    products.forEach(p => {
+        options += `<option value="${p.id}" data-price="${p.price}">
+            ${p.name} (₦${parseFloat(p.price).toLocaleString()})
+        </option>`;
+    });
 
-                confirmButton.disabled = false;
-                confirmButton.textContent = 'Delete';
-            });
-        });
-    </script>
+    row.innerHTML = `
+        <div class="col-md-5">
+            <select name="items[${itemIndex}][product_id]" class="form-select product" required>
+                ${options}
+            </select>
+        </div>
 
-    <!-- Dispplay transaction -->
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            let currentTransactionId = null;
+        <div class="col-md-2">
+            <input type="number" name="items[${itemIndex}][qty]" class="form-control qty" value="1" min="1" required>
+        </div>
 
-            const transactionModal = document.getElementById('transactionModal');
-            const confirmButton = document.getElementById('confirmButton');
-            const confirmMessage = document.getElementById('confirmMessage');
+        <div class="col-md-3">
+            <input type="text" class="form-control subtotal" readonly>
+        </div>
 
-            if (!transactionModal || !confirmButton || !confirmMessage) {
-                console.error('Modal elements not found.');
-                return;
+        <div class="col-md-2">
+            <button type="button" class="btn btn-danger remove-item">X</button>
+        </div>
+    `;
+
+    container.appendChild(row);
+    itemIndex++; // 🔥 IMPORTANT
+}
+
+        addBtn.addEventListener('click', addItem);
+
+        /* =========================
+        REMOVE ITEM
+        ========================= */
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('remove-item')) {
+                e.target.closest('.item-row').remove();
+                calculateTotals();
             }
+        });
 
-            // Handle "View Transaction" button click
-            document.querySelectorAll('.view-transaction').forEach(button => {
-                button.addEventListener('click', e => {
-                    e.preventDefault();
-                    currentTransactionId = button.dataset.id;
+        /* =========================
+        LISTEN INPUTS
+        ========================= */
+        document.addEventListener('input', function(e) {
+            if (
+                e.target.classList.contains('product') ||
+                e.target.classList.contains('qty') ||
+                e.target.id === 'discountValue' ||
+                e.target.id === 'taxValue'
+            ) {
+                calculateTotals();
+            }
+        });
 
-                    confirmMessage.innerHTML = `
-                        <div class="text-center">
-                            <div class="spinner-border text-primary mb-3" role="status"></div>
-                            <p>Loading transaction details...</p>
-                        </div>
-                    `;
-                    confirmButton.style.display = 'none';
+        /* =========================
+        FORMAT DISCOUNT & TAX
+        ========================= */
+        document.addEventListener('input', function(e) {
+            if (e.target.id === 'discountValue' || e.target.id === 'taxValue') {
+                let value = e.target.value.replace(/,/g, '');
 
-                    // Show system modal
-                    transactionModal.classList.add('show');
-                    transactionModal.style.display = 'block';
-
-                    // Fetch transaction details
-                    loadTransactionDetails(currentTransactionId);
-                });
-            });
-
-            async function loadTransactionDetails(transactionId) {
-                try {
-                    const response = await fetch('./auth/transaction_view_auth.php', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: new URLSearchParams({ id: transactionId })
-                    });
-
-                    const data = await response.json();
-
-                    if (!data.success) {
-                        confirmMessage.innerHTML = `<div class="text-danger text-center">${data.message || 'Transaction not found.'}</div>`;
-                        return;
-                    }
-
-                    const transaction = data.transaction;
-
-                    confirmMessage.innerHTML = `
-                        <div class="content-area text-start">
-                            <div class="data-details d-md-flex mb-5">
-                                <div class="fake-class">
-                                    <span class="data-details-title">Transaction Date</span>
-                                    <span class="data-details-info">${transaction.created_at}</span>
-                                </div>
-
-                                <div class="fake-class">
-                                    <span class="data-details-title">Reference</span>
-                                    <span class="data-details-info">${transaction.transaction_ref}</span>
-                                </div>
-
-                                <div class="fake-class">
-                                    <span class="data-details-title">Status</span>
-                                    <span class="badge ${transaction.status === 'processing' ? 'bg-soft-warning text-warning' : transaction.status === 'completed' ? 'bg-soft-success text-success' : transaction.status === 'cancelled' ? 'bg-soft-danger text-danger' : 'bg-soft-secondary'} ucap">${transaction.status.toUpperCase()}</span>
-                                </div>
-                            </div>
-
-                            <ul class="data-details-list">
-                                <li>
-                                    <div class="data-details-head">Customer</div>
-                                    <div class="data-details-des">${transaction.customer_first || ''} ${transaction.customer_last || ''}</div>
-                                </li>
-                                
-                                <li>
-                                    <div class="data-details-head">Product</div>
-                                    <div class="data-details-des">${transaction.product_name || '—'}</div>
-                                </li>
-                                
-                                <li>
-                                    <div class="data-details-head">Price</div>
-                                    <div class="data-details-des">₦${parseFloat(transaction.price || 0).toLocaleString()}</div>
-                                </li>
-
-                                <li>
-                                    <div class="data-details-head">Quantity</div>
-                                    <div class="data-details-des">${transaction.quantity || '—'}</div>
-                                </li>
-                                
-                                <li>
-                                    <div class="data-details-head">Total</div>
-                                    <div class="data-details-des">₦${parseFloat(transaction.total_amount || 0).toLocaleString()}</div>
-                                </li>
-
-                                <li>
-                                    <div class="data-details-head">Mode of Payment</div>
-                                    <div class="data-details-des">
-                                        ${transaction.payment_method 
-                                            ? transaction.payment_method.charAt(0).toUpperCase() + transaction.payment_method.slice(1) 
-                                            : '—'}
-                                    </div>
-                                </li>
-
-                                <li>
-                                    <div class="data-details-head">Served by</div>
-                                    <div class="data-details-des">${transaction.admin_first || ''} ${transaction.admin_last || ''}</div>
-                                </li>
-                            </ul>
-                        </div>
-                    `;
-                } catch (error) {
-                    console.error(error);
-                    confirmMessage.innerHTML = `<div class="text-danger text-center">Network or server error.</div>`;
+                if (!isNaN(value) && value !== '') {
+                    e.target.value = parseFloat(value).toLocaleString();
                 }
             }
+        });
 
-            // Close modal
-            transactionModal.addEventListener('click', e => {
-                if (
-                    e.target.classList.contains('modal-close') ||
-                    e.target.classList.contains('btn-close') || // added this
-                    e.target === transactionModal
-                ) {
-                    transactionModal.classList.remove('show');
-                    transactionModal.style.display = 'none';
-                }
+        /* =========================
+        CALCULATE TOTALS
+        ========================= */
+        function calculateTotals() {
+            let subtotal = 0;
+
+            document.querySelectorAll('.item-row').forEach(row => {
+                const product = row.querySelector('.product');
+                const qty = parseFloat(row.querySelector('.qty').value) || 0;
+
+                const price = product?.options[product.selectedIndex]?.dataset.price || 0;
+
+                const total = price * qty;
+
+                row.querySelector('.subtotal').value = total.toLocaleString();
+
+                subtotal += total;
             });
 
-        });
+            // SUBTOTAL DISPLAY
+            document.getElementById('subTotalDisplay').innerText = subtotal.toLocaleString();
+
+            // DISCOUNT
+            const discountType = document.getElementById('discountType').value;
+            const discountValue = getRawNumber(document.getElementById('discountValue').value);
+
+            let discount = discountType === 'percent'
+                ? (subtotal * discountValue / 100)
+                : discountValue;
+
+            let afterDiscount = subtotal - discount;
+
+            // TAX
+            const taxType = document.getElementById('taxType').value;
+            const taxValue = getRawNumber(document.getElementById('taxValue').value);
+
+            let tax = taxType === 'percent'
+                ? (afterDiscount * taxValue / 100)
+                : taxValue;
+
+            // GRAND TOTAL
+            let grandTotal = afterDiscount + tax;
+
+            // DISPLAY
+            document.getElementById('grandTotalDisplay').innerText = grandTotal.toLocaleString();
+        }
+
+        /* =========================
+        INITIAL RUN
+        ========================= */
+        calculateTotals();
     </script>
 
+    <!-- Create invoice -->
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const form = document.querySelector('#offcanvasAddNewInvoice form');
+            if (!form) return; // safely skip if form not found
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const submitBtn = form.querySelector('button[type="submit"]');
+                const notyf = new Notyf();
+                const formData = new FormData(form);
+
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>Creating...`;
+
+                try {
+                const response = await fetch('./auth/create_invoice_auth.php', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    notyf.success(data.message);
+                    form.reset();
+                    setTimeout(() => window.location.reload(), 2000);
+                } else {
+                    notyf.error(data.message);
+                }
+                } catch (error) {
+                notyf.error('Network or server error.');
+                console.error(error);
+                }
+
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<span class="pe-2"><i class="bi bi-plus-square-dotted"></i></span>Add New`;
+            });
+        });
+    </script>
 
 </body>
 

@@ -260,7 +260,6 @@ function getStatusBadge(string $status = ''): array {
         });
     </script>
 
-
     <!-- Delete transaction -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {

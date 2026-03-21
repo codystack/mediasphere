@@ -220,7 +220,7 @@ try {
                                     </table>
 
                                     <p style='margin-top:20px;color:#DB0000;'>
-                                        <a href='https://mediasphere.store/receipt.php?transaction_ref={$transaction_ref}'>
+                                        <a href='https://mediasphere.store/receipt?transaction_ref={$transaction_ref}'>
                                             Download PDF Receipt
                                         </a>
                                     </p>

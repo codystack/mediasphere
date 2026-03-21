@@ -286,10 +286,8 @@ $total_revenue = $total['total_revenue'] ?? 0;
                                     <table class="table table-hover table-nowrap">
                                         <thead class="table-light">
                                             <tr>
-                                                <th scope="col">Ref</th>
                                                 <th scope="col">Product</th>
                                                 <th scope="col">Amount</th>
-                                                <th scope="col">Status</th>
                                                 <th></th>
                                             </tr>
                                         </thead>
@@ -305,24 +303,14 @@ $total_revenue = $total['total_revenue'] ?? 0;
                                                         </div>
                                                         <div class="ms-3">
                                                             <span class="d-inline-block h6 font-semibold mb-1">
-                                                                <?= htmlspecialchars(($transaction['transaction_ref'] ?? '')) ?>
+                                                                <?= htmlspecialchars($transaction['product_name'] ?? '—') ?>
                                                             </span>
                                                         </div>
                                                     </div>
                                                 </td>
 
                                                 <td>
-                                                    <?= htmlspecialchars($transaction['product_name'] ?? '—') ?>
-                                                </td>
-
-                                                <td>
                                                     ₦<?= number_format($transaction['total_amount'], 2) ?>
-                                                </td>
-
-                                                <td>
-                                                    <span class="badge <?= $badge ?> rounded-pill">
-                                                        <?= $label ?>
-                                                    </span>
                                                 </td>
 
                                                 <td class="text-end">
